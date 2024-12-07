@@ -170,7 +170,7 @@ const COMPOSE_BLOCKS_REGEX = /^.*css\.compose\(\{[\s\S]*?\}\);/gm;
 interface UsedTokens {
   properties: Tokenami.TokenProperty[];
   values: Tokenami.TokenValue[];
-  composeBlocks: Record<string, TokenamiProperties>;
+  composeBlocks: Record<`.${string}`, TokenamiProperties>;
 }
 
 async function findUsedTokens(cwd: string, config: Tokenami.Config): Promise<UsedTokens> {
@@ -179,7 +179,7 @@ async function findUsedTokens(cwd: string, config: Tokenami.Config): Promise<Use
   const entries = await glob(include, { cwd, onlyFiles: true, stats: false, ignore: exclude });
   let tokenProperties: Tokenami.TokenProperty[] = [];
   let tokenValues: Tokenami.TokenValue[] = [];
-  let composeBlocks: Record<string, TokenamiProperties> = {};
+  let composeBlocks: Record<`.${string}`, TokenamiProperties> = {};
 
   entries.forEach((entry) => {
     const fileContent = fs.readFileSync(entry, 'utf8');
@@ -198,7 +198,7 @@ async function findUsedTokens(cwd: string, config: Tokenami.Config): Promise<Use
     }
 
     if (fileContent.includes(sheet.LAYERS.COMPONENTS)) {
-      const sheetComposeBlocks = findSheetComposeBlocks(fileContent, config.composeSelector);
+      const sheetComposeBlocks = findSheetComposeBlocks(fileContent);
       composeBlocks = { ...composeBlocks, ...sheetComposeBlocks };
     }
   });
@@ -210,40 +210,33 @@ async function findUsedTokens(cwd: string, config: Tokenami.Config): Promise<Use
  * matchBaseComposeBlocks
  * -----------------------------------------------------------------------------------------------*/
 
-function matchBaseComposeBlocks(
-  ast: acorn.AnyNode
-): Record<string, TokenamiProperties> | undefined {
+function matchBaseComposeBlocks(ast: acorn.AnyNode): Record<`.${string}`, TokenamiProperties> {
   const composeBlocks = findComposeBlocks(ast);
-  let result: Record<string, TokenamiProperties> | undefined;
+  let result: Record<`.${string}`, TokenamiProperties> = {};
 
   if (!composeBlocks) return result;
 
   for (const node of composeBlocks) {
-    for (const block of node.properties) {
+    let styles: TokenamiProperties | undefined;
+
+    for (const tokenProperty of node.properties) {
       if (
-        block.type !== 'Property' ||
-        block.key.type !== 'Identifier' ||
-        block.value.type !== 'ObjectExpression'
+        tokenProperty.type !== 'Property' ||
+        tokenProperty.key.type !== 'Literal' ||
+        tokenProperty.value.type !== 'Literal'
       ) {
         continue;
       }
 
-      for (const tokenProperty of block.value.properties) {
-        if (
-          tokenProperty.type !== 'Property' ||
-          tokenProperty.key.type !== 'Literal' ||
-          tokenProperty.value.type !== 'Literal'
-        ) {
-          continue;
-        }
+      const property = tokenProperty.key.value;
+      const value = tokenProperty.value.value;
+      styles ??= {};
+      styles[property as any] = value as any;
+    }
 
-        const property = tokenProperty.key.value;
-        const value = tokenProperty.value.value;
-
-        result ??= {};
-        result[block.key.name] ??= {};
-        result![block.key.name]![property as any] = value as any;
-      }
+    if (styles) {
+      const className = Tokenami.generateClassName(styles);
+      result[`.${className}`] = styles;
     }
   }
 
@@ -344,12 +337,9 @@ function findResponsiveVariantsBlocks(node: acorn.AnyNode): acorn.Property | nul
  * findSheetComposeBlocks
  * -----------------------------------------------------------------------------------------------*/
 
-function findSheetComposeBlocks(
-  fileContents: string,
-  composeSelector: Tokenami.Config['composeSelector']
-) {
+function findSheetComposeBlocks(fileContents: string) {
   const ast = csstree.parse(fileContents);
-  let stylesObject: Record<string, TokenamiProperties> | undefined;
+  let stylesObject: Record<`.${string}`, TokenamiProperties> | undefined;
 
   csstree.walk(ast, {
     visit: 'Atrule',
@@ -364,20 +354,20 @@ function findSheetComposeBlocks(
           enter(ruleNode) {
             if (!ruleNode.prelude || !ruleNode.block) return;
             const selector = csstree.generate(ruleNode.prelude).trim();
-            const block = Tokenami.getBlockFromComposeSelector(selector, composeSelector);
             let styles: TokenamiProperties = {};
 
             csstree.walk(ruleNode.block, {
               visit: 'Declaration',
               enter(declNode) {
-                const property = declNode.property.trim().replace(/\\/g, '');
+                const escapedProperty = declNode.property.trim();
+                const property = Tokenami.stringifyProperty(escapedProperty);
                 const value = csstree.generate(declNode.value).trim();
                 styles[property as any] = value as any;
               },
             });
 
             stylesObject ??= {};
-            stylesObject[block.name] = styles;
+            stylesObject[selector as `.${string}`] = styles;
           },
         });
       }
