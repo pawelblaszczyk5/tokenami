@@ -62,7 +62,6 @@
     "sucrase": "^3.34.0"
   },
   "peerDependencies": {
-    "@tokenami/css": ">= 0",
     "typescript": ">= 5"
   }
 }

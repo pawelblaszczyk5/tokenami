@@ -2,7 +2,7 @@ import config from './tokenami.config';
 
 export type Config = typeof config;
 
-declare module '@tokenami/css' {
+declare module '@tokenami/dev' {
   interface TokenamiConfig extends Config {}
   interface TokenamiProperties {}
 }

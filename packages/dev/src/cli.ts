@@ -1,4 +1,3 @@
-import { type TokenamiProperties } from '@tokenami/css';
 import * as Tokenami from '@tokenami/config';
 import browserslist from 'browserslist';
 import { browserslistToTargets } from 'lightningcss';
@@ -8,12 +7,13 @@ import inquirer from 'inquirer';
 import * as fs from 'fs';
 import * as chokidar from 'chokidar';
 import * as pathe from 'pathe';
-import * as sheet from './sheet';
-import * as log from './log';
-import * as utils from './utils';
 import * as acorn from 'acorn';
 import * as acornWalk from 'acorn-walk';
 import * as csstree from 'css-tree';
+import * as sheet from './sheet';
+import * as log from './log';
+import * as utils from './utils';
+import { type TokenamiProperties } from './declarations';
 import pkgJson from './../package.json';
 
 type Writeable<T> = { -readonly [P in keyof T]: T[P] };

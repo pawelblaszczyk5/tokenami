@@ -8,8 +8,7 @@
     "target": "ES2022",
     "paths": {
       "@tokenami/config": ["../config/src"],
-      "@tokenami/dev": ["../dev/src"],
-      "@tokenami/css": ["./src"]
+      "@tokenami/dev": ["../dev/src"]
     }
   }
 }
